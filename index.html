@@ -1,0 +1,1065 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Read Aloud">
+<title>Read Aloud</title>
+<style>
+  :root {
+    --bg: #E8EDF1;
+    --surface: #FBFCFD;
+    --ink: #16202A;
+    --muted: #64717D;
+    --line: #CDD5DC;
+    --accent: #0F6C74;
+    --on-accent: #FFFFFF;
+    --mark: #FFE58A;
+    --mark-ink: #16202A;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F151B;
+      --surface: #161D24;
+      --ink: #E7ECF0;
+      --muted: #8E9BA7;
+      --line: #2A343E;
+      --accent: #4FC3CC;
+      --on-accent: #0B1418;
+      --mark: #5C4B12;
+      --mark-ink: #FFF3C4;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F151B;
+    --surface: #161D24;
+    --ink: #E7ECF0;
+    --muted: #8E9BA7;
+    --line: #2A343E;
+    --accent: #4FC3CC;
+    --on-accent: #0B1418;
+    --mark: #5C4B12;
+    --mark-ink: #FFF3C4;
+    color-scheme: dark;
+  }
+
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    background: var(--bg);
+  }
+  html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+  *, *::before, *::after { box-sizing: inherit; }
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  button, select, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 56px;
+    padding: 6px 16px;
+  }
+  h1 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -0.01em; }
+  .actions { display: flex; gap: 8px; }
+  .pill {
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--accent);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .pill:active { background: var(--line); }
+
+  main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  #ta, #reader {
+    flex: 1;
+    min-height: 0;
+    padding: 22px max(20px, calc((100% - 40rem) / 2));
+    font-family: "Iowan Old Style", Charter, "Palatino Linotype", Georgia, serif;
+  }
+  #ta {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    resize: none;
+    background: transparent;
+    color: var(--ink);
+    font-size: 19px;
+    line-height: 1.65;
+    outline: none;
+  }
+  #ta::placeholder { color: var(--muted); }
+  main:focus-within #ta { box-shadow: inset 0 0 0 2px var(--accent); }
+
+  #reader {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 21px;
+    line-height: 1.75;
+  }
+  #reader p { margin: 0 0 1.1em; }
+  .s {
+    cursor: pointer;
+    padding: 0.06em 0.18em;
+    margin: 0 -0.18em;
+    border-radius: 0.3em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .s.done { color: var(--muted); }
+  .s.on { background: var(--mark); color: var(--mark-ink); }
+
+  footer { flex: none; position: relative; padding: 10px 16px 12px; }
+  .bar { position: absolute; left: 0; right: 0; top: 0; height: 3px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.25s; }
+
+  #toast {
+    margin: 0 0 8px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 14px;
+    line-height: 1.4;
+    text-align: center;
+  }
+  #toast:empty { display: none; }
+
+  #panel { display: grid; gap: 14px; padding: 6px 2px 14px; max-height: 44vh; overflow-y: auto; }
+  .field { display: grid; gap: 6px; }
+  .field label, .field .lbl { font-size: 13px; font-weight: 600; color: var(--muted); display: flex; justify-content: space-between; }
+  select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-size: 16px;
+  }
+  input[type="range"] { width: 100%; accent-color: var(--accent); height: 32px; margin: 0; }
+  .tip { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { min-height: 44px; border: 0; background: var(--surface); font-size: 15px; font-weight: 600; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-checked="true"] { background: var(--accent); color: var(--on-accent); }
+
+  .meter { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
+
+  #status { min-height: 18px; margin: 0 0 6px; text-align: center; font-size: 13px; color: var(--muted); }
+
+  .transport { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+  .transport .left { justify-self: start; }
+  .transport .right { justify-self: end; }
+  .mid { display: flex; align-items: center; gap: 14px; }
+  .icon-btn {
+    width: 48px; height: 48px;
+    display: grid; place-items: center;
+    border: 0; border-radius: 50%;
+    background: transparent;
+    color: var(--ink);
+  }
+  .icon-btn:active { background: var(--line); }
+  .icon-btn:disabled { opacity: 0.32; pointer-events: none; }
+  .icon-btn[aria-expanded="true"] { background: var(--line); }
+  .icon-btn svg { width: 24px; height: 24px; fill: currentColor; }
+  .icon-btn svg.stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .play { width: 66px; height: 66px; background: var(--accent); color: var(--on-accent); }
+  .play:active { background: var(--accent); filter: brightness(0.9); }
+  .play svg { width: 30px; height: 30px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .s, .bar i, .meter i { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Read Aloud</h1>
+  <div class="actions" id="editActions">
+    <button class="pill" id="pasteBtn" type="button">Paste</button>
+    <button class="pill" id="clearBtn" type="button">Clear</button>
+  </div>
+</header>
+
+<main>
+  <textarea id="ta" placeholder="Paste or type text here, then press play." aria-label="Text to read" spellcheck="false" autocapitalize="sentences"></textarea>
+  <article id="reader" hidden aria-label="Reading view"></article>
+</main>
+
+<audio id="au" playsinline preload="auto"></audio>
+
+<footer>
+  <div class="bar" aria-hidden="true"><i id="barFill"></i></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <div id="panel" hidden>
+    <div class="field">
+      <span class="lbl" id="engLbl">Voice type</span>
+      <div class="seg" role="radiogroup" aria-labelledby="engLbl">
+        <button type="button" role="radio" aria-checked="true" data-engine="builtin">Built-in</button>
+        <button type="button" role="radio" aria-checked="false" data-engine="natural">Natural</button>
+      </div>
+    </div>
+
+    <div class="field" id="dl" hidden>
+      <span class="lbl"><span id="dlText">Preparing…</span></span>
+      <div class="meter" aria-hidden="true"><i id="dlFill"></i></div>
+    </div>
+
+    <div class="field" id="builtinField">
+      <label for="voiceSel">Voice</label>
+      <select id="voiceSel"></select>
+    </div>
+    <div class="field" id="naturalField" hidden>
+      <label for="nvoiceSel">Voice</label>
+      <select id="nvoiceSel"></select>
+    </div>
+
+    <div class="field">
+      <label for="rate"><span>Speed</span><span id="rateOut">1.0×</span></label>
+      <input type="range" id="rate" min="0.5" max="2" step="0.05" value="1">
+    </div>
+
+    <p class="tip" id="tip"></p>
+  </div>
+
+  <p id="status"></p>
+
+  <div class="transport">
+    <div class="left">
+      <button class="icon-btn" id="settingsBtn" type="button" aria-label="Voice and speed" aria-expanded="false" aria-controls="panel">
+        <svg class="stroke" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
+      </button>
+    </div>
+    <div class="mid">
+      <button class="icon-btn" id="prevBtn" type="button" aria-label="Previous sentence">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2.2v14H6zM20 5v14L9.5 12z"/></svg>
+      </button>
+      <button class="icon-btn play" id="playBtn" type="button" aria-label="Play"></button>
+      <button class="icon-btn" id="nextBtn" type="button" aria-label="Next sentence">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.8 5H18v14h-2.2zM4 5v14l10.5-7z"/></svg>
+      </button>
+    </div>
+    <div class="right">
+      <button class="icon-btn" id="stopBtn" type="button" aria-label="Stop and edit text">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  var KOKORO_URL = 'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js';
+  var KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+  var PREFETCH = 3; // sentences to prepare ahead of the one being played
+
+  var $ = function (id) { return document.getElementById(id); };
+  var ta = $('ta'), reader = $('reader'), toastEl = $('toast'), panel = $('panel'), au = $('au');
+  var voiceSel = $('voiceSel'), nvoiceSel = $('nvoiceSel'), rateEl = $('rate'), rateOut = $('rateOut');
+  var playBtn = $('playBtn'), prevBtn = $('prevBtn'), nextBtn = $('nextBtn'), stopBtn = $('stopBtn');
+  var settingsBtn = $('settingsBtn'), statusEl = $('status'), barFill = $('barFill');
+  var editActions = $('editActions'), tipEl = $('tip');
+  var dlBox = $('dl'), dlText = $('dlText'), dlFill = $('dlFill');
+  var builtinField = $('builtinField'), naturalField = $('naturalField');
+
+  var synth = window.speechSynthesis;
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+  var ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
+
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  /* ---------- state ---------- */
+  var voices = [];
+  var segs = [];
+  var spans = [];
+  var idx = 0;
+  var mode = 'edit';     // 'edit' | 'read'
+  var state = 'idle';    // 'idle' | 'playing' | 'paused' | 'done'
+  var engine = 'builtin';// 'builtin' | 'natural'
+  var token = 0;
+  var live = null;
+  var rate = 1;
+  var busyMsg = '';
+  var toastTimer = null;
+
+  // natural engine
+  var kokoro = null, modelPromise = null;
+  var clips = new Map();  // index -> {p, url, done}
+  var epoch = 0;
+  var chain = Promise.resolve();
+  var clipIdx = -1;       // index of the sentence currently loaded in <audio>
+  var silentUrl = null;
+
+  /* ---------- helpers ---------- */
+  function toast(msg, ms) {
+    toastEl.textContent = msg;
+    clearTimeout(toastTimer);
+    if (msg) toastTimer = setTimeout(function () { toastEl.textContent = ''; }, ms || 4000);
+  }
+  function wordCount(text) { var t = text.trim(); return t ? t.split(/\s+/).length : 0; }
+  function isStandalone() {
+    return (window.navigator.standalone === true) ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  }
+
+  /* ---------- text -> sentences ---------- */
+  function splitSentences(p) {
+    var out = [];
+    if (window.Intl && Intl.Segmenter) {
+      try {
+        var seg = new Intl.Segmenter(navigator.language || 'en', { granularity: 'sentence' });
+        var it = seg.segment(p);
+        for (var part of it) out.push(part.segment.trim());
+        return out.filter(Boolean);
+      } catch (e) { out = []; }
+    }
+    var m = p.match(/[^.!?\u2026]+(?:[.!?\u2026]+["'\u201D\u2019)\]]*|$)\s*/g) || [p];
+    return m.map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  function chunkLong(s, max) {
+    var parts = [];
+    while (s.length > max) {
+      var cut = Math.max(s.lastIndexOf(', ', max), s.lastIndexOf('; ', max), s.lastIndexOf(': ', max));
+      if (cut < max * 0.4) cut = s.lastIndexOf(' ', max);
+      if (cut <= 0) cut = max;
+      parts.push(s.slice(0, cut + 1).trim());
+      s = s.slice(cut + 1).trim();
+    }
+    if (s) parts.push(s);
+    return parts;
+  }
+
+  function buildSegments(text) {
+    var clean = text.replace(/\r\n?/g, '\n').replace(/[\u200B-\u200D\uFEFF]/g, '');
+    var lines = clean.split('\n');
+    var paras = [];
+    var cur = '';
+    function flush() {
+      if (cur.trim()) paras.push(cur.trim().replace(/\s+/g, ' '));
+      cur = '';
+    }
+    lines.forEach(function (raw) {
+      var line = raw.trim();
+      if (!line) { flush(); return; }
+      cur += (cur ? ' ' : '') + line;
+      if (/[.!?:\u2026"\u201D\u2019')\]]$/.test(line) || line.length < 50) flush();
+    });
+    flush();
+
+    var out = [];
+    paras.forEach(function (para, pi) {
+      splitSentences(para).forEach(function (s) {
+        chunkLong(s, 220).forEach(function (c) {
+          if (/[\p{L}\p{N}]/u.test(c)) out.push({ text: c, p: pi });
+        });
+      });
+    });
+    return out;
+  }
+
+  /* ---------- built-in voices ---------- */
+  var NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Kathy|Ralph|Deranged|Hysterical|Pipe Organ)\b/i;
+
+  function quality(v) {
+    if (/premium/i.test(v.name)) return 3;
+    if (/enhanced|siri/i.test(v.name)) return 2;
+    if (v.localService === false) return 1;
+    return 0;
+  }
+  function byQuality(a, b) { return (quality(b) - quality(a)) || a.name.localeCompare(b.name); }
+
+  function optionFor(v) {
+    var o = document.createElement('option');
+    o.value = v.voiceURI;
+    o.textContent = /\(/.test(v.name) ? v.name : v.name + ' (' + v.lang + ')';
+    return o;
+  }
+
+  function loadVoices() {
+    if (!synth) return;
+    voices = synth.getVoices() || [];
+    var saved = store.get('ra.voice');
+    voiceSel.innerHTML = '';
+    if (!voices.length) {
+      var d = document.createElement('option');
+      d.textContent = 'Default voice';
+      d.value = '';
+      voiceSel.appendChild(d);
+      return;
+    }
+    var lang = (navigator.language || 'en').toLowerCase().split('-')[0];
+    var list = voices.filter(function (v) { return !NOVELTY.test(v.name); });
+    if (!list.length) list = voices.slice();
+    var mine = list.filter(function (v) { return v.lang.toLowerCase().indexOf(lang) === 0; }).sort(byQuality);
+    var other = list.filter(function (v) { return mine.indexOf(v) === -1; }).sort(byQuality);
+
+    function group(label, arr) {
+      if (!arr.length) return;
+      var g = document.createElement('optgroup');
+      g.label = label;
+      arr.forEach(function (v) { g.appendChild(optionFor(v)); });
+      voiceSel.appendChild(g);
+    }
+    group('Your language', mine);
+    group('Other languages', other);
+
+    var ordered = mine.concat(other);
+    var pick = ordered.filter(function (v) { return v.voiceURI === saved; })[0] || ordered[0];
+    if (pick) voiceSel.value = pick.voiceURI;
+  }
+
+  function currentVoice() {
+    var uri = voiceSel.value;
+    if (!uri) return null;
+    for (var i = 0; i < voices.length; i++) if (voices[i].voiceURI === uri) return voices[i];
+    return null;
+  }
+
+  /* ---------- natural voices list (Kokoro, English) ---------- */
+  var NAT_GROUPS = [
+    ['American, female', ['af_heart', 'af_bella', 'af_nicole', 'af_sarah', 'af_sky', 'af_nova', 'af_jessica', 'af_alloy', 'af_aoede', 'af_kore', 'af_river']],
+    ['American, male', ['am_adam', 'am_michael', 'am_eric', 'am_liam', 'am_onyx', 'am_puck', 'am_echo', 'am_fenrir']],
+    ['British, female', ['bf_emma', 'bf_isabella', 'bf_alice', 'bf_lily']],
+    ['British, male', ['bm_george', 'bm_fable', 'bm_daniel', 'bm_lewis']]
+  ];
+  function loadNaturalVoices() {
+    var saved = store.get('ra.nvoice') || 'af_heart';
+    nvoiceSel.innerHTML = '';
+    NAT_GROUPS.forEach(function (g) {
+      var og = document.createElement('optgroup');
+      og.label = g[0];
+      g[1].forEach(function (id) {
+        var o = document.createElement('option');
+        o.value = id;
+        var n = id.split('_')[1];
+        o.textContent = n.charAt(0).toUpperCase() + n.slice(1);
+        og.appendChild(o);
+      });
+      nvoiceSel.appendChild(og);
+    });
+    nvoiceSel.value = saved;
+    if (nvoiceSel.value !== saved) nvoiceSel.value = 'af_heart';
+  }
+
+  /* ---------- rendering ---------- */
+  function renderReader() {
+    reader.innerHTML = '';
+    spans = [];
+    var lastP = -1, pEl = null;
+    segs.forEach(function (seg, i) {
+      if (seg.p !== lastP) {
+        pEl = document.createElement('p');
+        reader.appendChild(pEl);
+        lastP = seg.p;
+      } else {
+        pEl.appendChild(document.createTextNode(' '));
+      }
+      var sp = document.createElement('span');
+      sp.className = 's';
+      sp.dataset.i = i;
+      sp.textContent = seg.text;
+      pEl.appendChild(sp);
+      spans.push(sp);
+    });
+    reader.scrollTop = 0;
+  }
+
+  function ensureVisible(el) {
+    if (!el) return;
+    var r = el.getBoundingClientRect();
+    var c = reader.getBoundingClientRect();
+    if (r.top < c.top + 48 || r.bottom > c.bottom - 48) {
+      el.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+  }
+
+  function highlight(scroll) {
+    for (var i = 0; i < spans.length; i++) {
+      var cls = 's';
+      if (state === 'done' || i < idx) cls += ' done';
+      else if (i === idx) cls += ' on';
+      spans[i].className = cls;
+    }
+    if (scroll !== false && state !== 'done') ensureVisible(spans[idx]);
+  }
+
+  function setMedia() {
+    if (!('mediaSession' in navigator) || engine !== 'natural' || mode !== 'read') return;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'Read Aloud',
+        artist: 'Sentence ' + (idx + 1) + ' of ' + segs.length
+      });
+      navigator.mediaSession.playbackState = state === 'playing' ? 'playing' : 'paused';
+    } catch (e) {}
+  }
+
+  function updateUI() {
+    var reading = mode === 'read';
+    ta.hidden = reading;
+    reader.hidden = !reading;
+    editActions.hidden = reading;
+
+    playBtn.innerHTML = state === 'playing' ? ICON_PAUSE : ICON_PLAY;
+    playBtn.setAttribute('aria-label', state === 'playing' ? 'Pause' : (state === 'done' ? 'Play again' : 'Play'));
+
+    prevBtn.disabled = !reading || idx <= 0;
+    nextBtn.disabled = !reading || state === 'done' || idx >= segs.length - 1;
+    stopBtn.disabled = !reading;
+
+    if (!reading) {
+      var n = wordCount(ta.value);
+      if (!n) statusEl.textContent = 'Nothing to read yet';
+      else {
+        var mins = Math.max(1, Math.round(n / (160 * rate)));
+        statusEl.textContent = n + (n === 1 ? ' word' : ' words') + ', about ' + mins + ' min';
+      }
+      barFill.style.width = '0';
+    } else if (state === 'done') {
+      statusEl.textContent = 'Finished';
+      barFill.style.width = '100%';
+    } else if (busyMsg && state === 'playing') {
+      statusEl.textContent = busyMsg;
+      barFill.style.width = (segs.length ? (idx / segs.length) * 100 : 0) + '%';
+    } else {
+      statusEl.textContent = 'Sentence ' + (idx + 1) + ' of ' + segs.length + (state === 'paused' ? ', paused' : '');
+      barFill.style.width = (segs.length ? (idx / segs.length) * 100 : 0) + '%';
+    }
+    setMedia();
+  }
+
+  function setBusy(msg) { busyMsg = msg || ''; updateUI(); }
+
+  /* ---------- natural engine: model ---------- */
+  function showDownload(pct, text) {
+    dlBox.hidden = false;
+    dlText.textContent = text;
+    dlFill.style.width = pct + '%';
+  }
+
+  function ensureModel() {
+    if (kokoro) return Promise.resolve(kokoro);
+    if (modelPromise) return modelPromise;
+
+    showDownload(0, 'Loading natural voice…');
+    var files = {};
+    modelPromise = import(KOKORO_URL).then(function (mod) {
+      return mod.KokoroTTS.from_pretrained(KOKORO_MODEL, {
+        dtype: 'q8',
+        device: 'wasm',
+        progress_callback: function (p) {
+          if (!p || p.status !== 'progress' || !p.file) return;
+          files[p.file] = { loaded: p.loaded || 0, total: p.total || 0 };
+          var loaded = 0, total = 0;
+          Object.keys(files).forEach(function (k) { loaded += files[k].loaded; total += files[k].total; });
+          if (total > 0) {
+            var pct = Math.min(99, Math.round((loaded / total) * 100));
+            var mb = Math.round(total / 1048576);
+            showDownload(pct, 'Downloading natural voice, ' + pct + '% of ' + mb + ' MB');
+            if (busyMsg) { busyMsg = 'Downloading voice, ' + pct + '%'; updateUI(); }
+          }
+        }
+      });
+    }).then(function (t) {
+      kokoro = t;
+      dlBox.hidden = true;
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+      return t;
+    }).catch(function (e) {
+      modelPromise = null;
+      dlBox.hidden = true;
+      throw e;
+    });
+    return modelPromise;
+  }
+
+  /* ---------- natural engine: sentence clips ---------- */
+  function queue(fn) {
+    var r = chain.then(fn);
+    chain = r.catch(function () {});
+    return r;
+  }
+
+  function wavUrl(f32, sr) {
+    var n = f32.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    function w(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, 'data'); v.setUint32(40, n * 2, true);
+    for (var i = 0; i < n; i++) {
+      var s = Math.max(-1, Math.min(1, f32[i]));
+      v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  }
+
+  function makeClipUrl(audio, i) {
+    if (audio && audio.audio && audio.sampling_rate) {
+      var f32 = audio.audio, sr = audio.sampling_rate;
+      var th = 0.008, a = 0, b = f32.length - 1;
+      while (a < b && Math.abs(f32[a]) < th) a++;
+      while (b > a && Math.abs(f32[b]) < th) b--;
+      a = Math.max(0, a - Math.round(sr * 0.03));
+      b = Math.min(f32.length - 1, b + Math.round(sr * 0.05));
+      var paraEnd = !segs[i + 1] || segs[i + 1].p !== segs[i].p;
+      var lead = Math.round(sr * 0.02);
+      var tail = Math.round(sr * (paraEnd ? 0.55 : 0.14));
+      var out = new Float32Array(lead + (b - a + 1) + tail);
+      out.set(f32.subarray(a, b + 1), lead);
+      return wavUrl(out, sr);
+    }
+    if (audio && audio.toBlob) return URL.createObjectURL(audio.toBlob());
+    throw new Error('Unexpected audio format from the voice model');
+  }
+
+  function getClip(i) {
+    var e = clips.get(i);
+    if (e) return e;
+    var ep = epoch;
+    var voice = nvoiceSel.value || 'af_heart';
+    e = { url: null, done: false };
+    e.p = queue(function () {
+      if (ep !== epoch) throw new Error('stale');
+      return kokoro.generate(segs[i].text, { voice: voice });
+    }).then(function (audio) {
+      if (ep !== epoch) throw new Error('stale');
+      e.url = makeClipUrl(audio, i);
+      e.done = true;
+      return e;
+    });
+    e.p.catch(function () { if (clips.get(i) === e) clips.delete(i); });
+    clips.set(i, e);
+    return e;
+  }
+
+  function prefetch(from) {
+    for (var k = 0; k < PREFETCH; k++) {
+      var j = from + k;
+      if (j < segs.length) getClip(j).p.catch(function () {});
+    }
+  }
+
+  function clearClips() {
+    epoch++;
+    clips.forEach(function (e) { if (e.url) URL.revokeObjectURL(e.url); });
+    clips.clear();
+  }
+
+  function pruneClips() {
+    clips.forEach(function (e, k) {
+      if (k < idx - 2) { if (e.url) URL.revokeObjectURL(e.url); clips.delete(k); }
+    });
+  }
+
+  function makeEnded(t) {
+    return function () {
+      if (t !== token) return;
+      clipIdx = -1;
+      idx++;
+      if (idx >= segs.length) { finish(); return; }
+      highlight();
+      updateUI();
+      playNatural(t);
+    };
+  }
+
+  function playNatural(t) {
+    var i = idx;
+    setBusy('Preparing voice…');
+    ensureModel().then(function () {
+      if (t !== token) return null;
+      var e = getClip(i);
+      if (!e.done) setBusy('Preparing sentence ' + (i + 1) + '…');
+      return e.p;
+    }).then(function (e) {
+      if (!e || t !== token) return;
+      busyMsg = '';
+      prefetch(i + 1);
+      au.defaultPlaybackRate = rate;
+      au.src = e.url;
+      au.playbackRate = rate;
+      au.onended = makeEnded(t);
+      au.onerror = function () { if (t === token) { toast('Playback problem, skipping ahead.'); makeEnded(t)(); } };
+      clipIdx = i;
+      pruneClips();
+      updateUI();
+      return au.play().catch(function (err) {
+        if (t !== token) return;
+        if (err && err.name === 'NotAllowedError') {
+          state = 'paused';
+          updateUI();
+          toast('Tap play to start.');
+        } else if (err && err.name !== 'AbortError') {
+          throw err;
+        }
+      });
+    }).catch(function (err) {
+      if (t !== token) return;
+      if (err && err.message === 'stale') return;
+      naturalFailed(err);
+    });
+  }
+
+  function naturalFailed(err) {
+    try { console.error(err); } catch (e) {}
+    var msg = (err && err.message) ? err.message : 'unknown error';
+    if (msg.length > 80) msg = msg.slice(0, 80) + '…';
+    busyMsg = '';
+    setEngine('builtin', true);
+    toast('The natural voice didn\u2019t load (' + msg + '). Switched to the built-in voice.', 9000);
+    if (mode === 'read' && state === 'playing') speakFrom(idx);
+    else updateUI();
+  }
+
+  /* ---------- built-in engine ---------- */
+  function speakCurrent(t) {
+    if (t !== token) return;
+    if (idx >= segs.length) { finish(); return; }
+    var u = new SpeechSynthesisUtterance(segs[idx].text);
+    var v = currentVoice();
+    if (v) { u.voice = v; u.lang = v.lang; }
+    u.rate = rate;
+
+    function advance() {
+      idx++;
+      if (idx >= segs.length) { finish(); return; }
+      highlight();
+      updateUI();
+      speakCurrent(t);
+    }
+    u.onend = function () { if (t === token) advance(); };
+    u.onerror = function (e) {
+      if (t !== token) return;
+      var err = e && e.error;
+      if (err === 'interrupted' || err === 'canceled') return;
+      if (err === 'not-allowed') {
+        state = 'paused';
+        updateUI();
+        toast('Tap play to start reading.');
+        return;
+      }
+      advance();
+    };
+    live = u;
+    synth.speak(u);
+  }
+
+  /* ---------- shared transport ---------- */
+  function stopOutput() {
+    if (synth) synth.cancel();
+    au.onended = null;
+    au.onerror = null;
+    try { au.pause(); } catch (e) {}
+    clipIdx = -1;
+  }
+
+  function speakFrom(i) {
+    idx = Math.max(0, Math.min(segs.length - 1, i));
+    state = 'playing';
+    token++;
+    var t = token;
+    busyMsg = '';
+    var busy = synth && (synth.speaking || synth.pending);
+    stopOutput();
+    highlight();
+    updateUI();
+
+    if (engine === 'natural') {
+      playNatural(t);
+    } else {
+      if (!synth) { toast('This browser can\u2019t read text aloud.'); return; }
+      if (busy) setTimeout(function () { speakCurrent(t); }, 60);
+      else speakCurrent(t);
+    }
+  }
+
+  function pause() {
+    token++;
+    busyMsg = '';
+    if (engine === 'natural') { try { au.pause(); } catch (e) {} }
+    else if (synth) synth.cancel();
+    state = 'paused';
+    updateUI();
+  }
+
+  function resume() {
+    if (engine === 'natural' && clipIdx === idx && au.src && !au.ended) {
+      token++;
+      var t = token;
+      au.onended = makeEnded(t);
+      state = 'playing';
+      updateUI();
+      au.play().catch(function () { speakFrom(idx); });
+    } else {
+      speakFrom(idx);
+    }
+  }
+
+  function finish() {
+    token++;
+    busyMsg = '';
+    clipIdx = -1;
+    state = 'done';
+    highlight(false);
+    updateUI();
+  }
+
+  function startReading() {
+    segs = buildSegments(ta.value);
+    if (!segs.length) { toast('Add some text first.'); return; }
+    clearClips();
+    renderReader();
+    mode = 'read';
+    speakFrom(0);
+  }
+
+  function exitReading() {
+    token++;
+    busyMsg = '';
+    stopOutput();
+    clearClips();
+    state = 'idle';
+    mode = 'edit';
+    updateUI();
+  }
+
+  function go(i) {
+    i = Math.max(0, Math.min(segs.length - 1, i));
+    if (state === 'playing') { speakFrom(i); return; }
+    idx = i;
+    clipIdx = -1;
+    if (state === 'done') state = 'paused';
+    highlight();
+    updateUI();
+  }
+
+  function unlockAudio() {
+    // Runs inside a tap so iOS lets the <audio> element play later without another tap.
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    if (!silentUrl) silentUrl = wavUrl(new Float32Array(2400), 24000);
+    try {
+      au.src = silentUrl;
+      var pr = au.play();
+      if (pr && pr.catch) pr.catch(function () {});
+    } catch (e) {}
+  }
+
+  function onPlayPress() {
+    if (engine === 'natural') unlockAudio();
+    if (mode === 'edit') {
+      if (engine === 'builtin' && !synth) { toast('This browser can\u2019t read text aloud. Try Safari.'); return; }
+      startReading();
+    }
+    else if (state === 'playing') pause();
+    else if (state === 'paused') resume();
+    else speakFrom(state === 'done' ? 0 : idx);
+  }
+
+  /* ---------- engine switching ---------- */
+  function refreshTip() {
+    if (engine === 'natural') {
+      var t = 'Natural voices are English only. The model downloads once (about 90 MB), and each sentence takes a moment to prepare, so a long text may pause now and then on older phones.';
+      if (!isStandalone()) t += ' For the download to stick, add this page to your Home Screen and open it from there.';
+      tipEl.textContent = t;
+    } else {
+      tipEl.textContent = 'For better built-in voices on iPhone, open Settings > Accessibility > Spoken Content > Voices and download an Enhanced or Premium voice. It will appear in the list above.';
+    }
+  }
+
+  function setEngine(name, silent) {
+    engine = name;
+    store.set('ra.engine', name);
+    document.querySelectorAll('.seg button').forEach(function (b) {
+      b.setAttribute('aria-checked', b.dataset.engine === name ? 'true' : 'false');
+    });
+    builtinField.hidden = name !== 'builtin';
+    naturalField.hidden = name !== 'natural';
+    if (name === 'builtin') dlBox.hidden = true;
+    refreshTip();
+    if (!silent && name === 'natural') {
+      unlockAudio();
+      ensureModel().then(function () { toast('Natural voice ready.'); }).catch(naturalFailed);
+    }
+  }
+
+  document.querySelectorAll('.seg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var name = b.dataset.engine;
+      if (name === engine) return;
+      var wasPlaying = mode === 'read' && state === 'playing';
+      if (wasPlaying) pause();
+      setEngine(name);
+      if (wasPlaying) speakFrom(idx);
+      else updateUI();
+    });
+  });
+
+  /* ---------- events ---------- */
+  playBtn.addEventListener('click', onPlayPress);
+  prevBtn.addEventListener('click', function () { go(idx - 1); });
+  nextBtn.addEventListener('click', function () { go(idx + 1); });
+  stopBtn.addEventListener('click', exitReading);
+
+  reader.addEventListener('click', function (e) {
+    var s = e.target.closest && e.target.closest('.s');
+    if (!s) return;
+    if (engine === 'natural') unlockAudio();
+    speakFrom(parseInt(s.dataset.i, 10));
+  });
+
+  $('pasteBtn').addEventListener('click', function () {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      ta.focus();
+      toast('Long-press the box and choose Paste.');
+      return;
+    }
+    navigator.clipboard.readText().then(function (t) {
+      if (t && t.trim()) {
+        ta.value = t;
+        store.set('ra.text', t);
+        ta.scrollTop = 0;
+        updateUI();
+      } else {
+        toast('The clipboard is empty.');
+      }
+    }).catch(function () {
+      ta.focus();
+      toast('Couldn\u2019t read the clipboard. Long-press the box and choose Paste.');
+    });
+  });
+
+  $('clearBtn').addEventListener('click', function () {
+    ta.value = '';
+    store.set('ra.text', '');
+    updateUI();
+    ta.focus();
+  });
+
+  var saveTimer = null;
+  ta.addEventListener('input', function () {
+    updateUI();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { store.set('ra.text', ta.value); }, 400);
+  });
+
+  settingsBtn.addEventListener('click', function () {
+    var open = panel.hidden;
+    panel.hidden = !open;
+    settingsBtn.setAttribute('aria-expanded', String(!panel.hidden));
+  });
+
+  rateEl.addEventListener('input', function () {
+    rate = parseFloat(rateEl.value) || 1;
+    store.set('ra.rate', String(rate));
+    rateOut.textContent = rate.toFixed(1) + '×';
+    if (mode === 'read') {
+      var target = engine === 'natural' ? au.playbackRate : rate;
+      if (engine === 'natural') {
+        if (au.src) au.playbackRate = target;
+      }
+      else if (live) live.rate = rate;
+    }
+    updateUI();
+  });
+
+  voiceSel.addEventListener('change', function () {
+    store.set('ra.voice', voiceSel.value);
+    if (mode === 'read' && state === 'playing' && engine === 'builtin') {
+      speakFrom(idx);
+    }
+  });
+
+  nvoiceSel.addEventListener('change', function () {
+    store.set('ra.nvoice', nvoiceSel.value);
+    clearClips();
+    if (mode === 'read' && state === 'playing' && engine === 'natural') {
+      speakFrom(idx);
+    }
+  });
+
+  try {
+    rate = parseFloat(store.get('ra.rate')) || 1;
+    rateEl.value = String(rate);
+    rateOut.textContent = rate.toFixed(1) + '×';
+  } catch (e) {}
+
+  var savedText = store.get('ra.text') || '';
+  if (savedText) ta.value = savedText;
+
+  loadVoices();
+  loadNaturalVoices();
+  setEngine(store.get('ra.engine') || 'builtin', true);
+  refreshTip();
+  updateUI();
+
+  if (synth) {
+    synth.onvoiceschanged = loadVoices;
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden' && mode === 'read' && state === 'playing' && engine === 'natural') {
+      try { au.pause(); } catch (e) {}
+    }
+  });
+
+  window.addEventListener('beforeunload', function () {
+    stopOutput();
+    clearClips();
+  });
+})();
+</script>
+</body>
+</html>
